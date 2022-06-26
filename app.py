@@ -1,79 +1,80 @@
-from http.client import responses
 from flask import Flask, request, render_template, redirect, flash, session
 from flask_debugtoolbar import DebugToolbarExtension
 from surveys import satisfaction_survey as survey
 
+# key names will use to store some things in the session;
+# put here as constants so we're guaranteed to be consistent in
+# our spelling of these
 RESPONSES_KEY = "responses"
+
 app = Flask(__name__)
-app.config['SECRET_KEY']= "never-tell!"
-app.config['DEBUG_TB_INTERCEPT_REDIRECT'] = False
+app.config['SECRET_KEY'] = "never-tell!"
+app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 
 debug = DebugToolbarExtension(app)
 
+
 @app.route("/")
 def show_survey_start():
-    """Select survey"""
+    """Select a survey."""
 
     return render_template("survey_start.html", survey=survey)
 
 
 @app.route("/begin", methods=["POST"])
 def start_survey():
-    """Clear session of responses"""
+    """Clear the session of responses."""
 
     session[RESPONSES_KEY] = []
+
     return redirect("/questions/0")
+
 
 @app.route("/answer", methods=["POST"])
 def handle_question():
-    """Save response, redirect to next question"""
+    """Save response and redirect to next question."""
 
-    #get response choice
+    # get the response choice
     choice = request.form['answer']
 
-    #adds response to session
+    # add this response to the session
     responses = session[RESPONSES_KEY]
     responses.append(choice)
     session[RESPONSES_KEY] = responses
 
-    if(len(responses)==len(survey.questions)):
-
-        #All questions answered
+    if (len(responses) == len(survey.questions)):
+        # They've answered all the questions! Thank them.
         return redirect("/complete")
-    
-    else:
 
-        #Move on to next question
+    else:
         return redirect(f"/questions/{len(responses)}")
-    
+
+
 @app.route("/questions/<int:qid>")
 def show_question(qid):
-    """show current question"""
+    """Display current question."""
     responses = session.get(RESPONSES_KEY)
 
-    if(responses is None):
-        #acessed this page too soon before response key is populated
+    if (responses is None):
+        # trying to access question page too soon
         return redirect("/")
 
-    if(len(responses) == len(survey.questions)):
-        #All questions answered. send to complete page
+    if (len(responses) == len(survey.questions)):
+        # They've answered all the questions! Thank them.
         return redirect("/complete")
-    
-    if(len(responses) != qid):
-        #questions being acessed out of order
-        flash(f"Invalid question id:{qid}")
+
+    if (len(responses) != qid):
+        # Trying to access questions out of order.
+        flash(f"Invalid question id: {qid}.")
         return redirect(f"/questions/{len(responses)}")
 
     question = survey.questions[qid]
-    return render_template("question.html", question_num=qid, question=question)
+    return render_template(
+        "question.html", question_num=qid, question=question)
+
 
 @app.route("/complete")
 def complete():
-    """Survey complete, shows final page"""
+    """Survey complete. Show completion page."""
 
     return render_template("completion.html")
-    
-    
-
-
-        
